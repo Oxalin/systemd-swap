@@ -37,7 +37,7 @@ def get_mem_stats(fields: List[str]) -> Dict[str, int]:
                 stats[key] = int(items[1]) * 1024
             if not fields:
                 break
-    assert len(fields) == 0
+    assert len(fields) <= 1
     return stats
 
 
@@ -423,8 +423,12 @@ class SwapFc:
 
     @staticmethod
     def get_free_ram_perc() -> int:
-        ram_stats = get_mem_stats(["MemTotal", "MemAvailable"])
-        return round((ram_stats["MemAvailable"] * 100) / ram_stats["MemTotal"])
+        ram_stats = get_mem_stats(["MemTotal", "MemFree", "MemAvailable"])
+        if "MemAvailable" in ram_stats:
+            free_ram = ram_stats["MemAvailable"]
+        else:
+            free_ram = ram_stats["MemFree"]
+        return round((free_ram * 100) / ram_stats["MemTotal"])
 
     @staticmethod
     def get_free_swap_perc() -> int:
