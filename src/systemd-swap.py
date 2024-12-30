@@ -471,8 +471,11 @@ def relative_symlink(target: str, link_name: str) -> None:
 
 
 def write(data: str, file: str) -> None:
-    with open(file, "w") as f:
-        f.write(data)
+    try:
+        with open(file, "w") as f:
+            f.write(data)
+    except:
+        warn(f"Failed writing {data} to file {file}")
 
 
 def read(file: str) -> str:
