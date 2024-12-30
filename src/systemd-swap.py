@@ -423,8 +423,8 @@ class SwapFc:
 
     @staticmethod
     def get_free_ram_perc() -> int:
-        ram_stats = get_mem_stats(["MemTotal", "MemFree"])
-        return round((ram_stats["MemFree"] * 100) / ram_stats["MemTotal"])
+        ram_stats = get_mem_stats(["MemTotal", "MemAvailable"])
+        return round((ram_stats["MemAvailable"] * 100) / ram_stats["MemTotal"])
 
     @staticmethod
     def get_free_swap_perc() -> int:
