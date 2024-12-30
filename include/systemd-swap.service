@@ -1,7 +1,7 @@
 [Unit]
 Description=Manage swap spaces on zram, files and partitions.
-Wants=modprobe@zram.service
-After=modprobe@zram.service
+Wants=modprobe@zram.service modprobe@z3fold.service modprobe@zbud.service
+After=modprobe@zram.service modprobe@z3fold.service modprobe@zbud.service
 
 [Service]
 Type=notify
