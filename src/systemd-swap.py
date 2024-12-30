@@ -57,8 +57,8 @@ PAGE_SIZE = int(
 )
 WORK_DIR = "/run/systemd/swap"
 LOCK_STARTED = f"{WORK_DIR}/.started"
-ZSWAP_M = "/sys/module/zswap"
-ZSWAP_M_P = "/sys/module/zswap/parameters"
+MODULE_PATH = "/sys/module"
+ZSWAP_M_P = f"{MODULE_PATH}/zswap/parameters"
 KMAJOR, KMINOR = [int(v) for v in os.uname().release.split(".")[0:2]]
 IS_DEBUG = False
 sigterm_event = threading.Event()
@@ -432,6 +432,9 @@ class SwapFc:
         # Minimum for total is 1 to prevent divide by zero.
         return round((swap_stats["SwapFree"] * 100) / max(swap_stats["SwapTotal"], 1))
 
+def module_loaded(module_name) -> bool:
+    return os.path.isdir(f"/sys/module/{module_name}")
+
 
 def debug(msg: str) -> None:
     if IS_DEBUG:
@@ -625,8 +628,12 @@ def start() -> None:
 
     def start_zswap() -> None:
         systemd.daemon.notify("STATUS=Setting up Zswap...")
-        if not os.path.isdir(ZSWAP_M):
-            error("Zswap - not supported on current kernel")
+        info("Zswap: check module availability")
+        if module_loaded("zswap"):
+            info("Zswap: module loaded")
+        else:
+            error("Zswap: module not available")
+
         info("Zswap: backup current configuration: start")
         makedirs(f"{WORK_DIR}/zswap")
         for file in os.listdir(ZSWAP_M_P):
@@ -640,19 +647,30 @@ def start() -> None:
             f'{config.get("zswap_max_pool_percent")}, Zpool: '
             f'{config.get("zswap_zpool")}'
         )
+
+        zpool_allocator = config.get("zswap_zpool")
+        if (zpool_allocator != "zsmalloc") and (not module_loaded(zpool_allocator)):
+            warn(f"Zswap: Desired Zpool allocator {zpool_allocator} not available")
+            if zswap_parameters[f"{ZSWAP_M_P}/zpool"]:
+                zpool_allocator = zswap_parameters[f"{ZSWAP_M_P}/zpool"]
+                warn(f"Zswap: Keeping current {zpool_allocator}")
+            else:
+                zpool_allocator = "zsmalloc"
+                warn("Zswap: Defaulting to zsmalloc")
+
         write(config.get("zswap_enabled"), f"{ZSWAP_M_P}/enabled")
         write(config.get("zswap_compressor"), f"{ZSWAP_M_P}/compressor")
         write(config.get("zswap_max_pool_percent"), f"{ZSWAP_M_P}/max_pool_percent")
-        write(config.get("zswap_zpool"), f"{ZSWAP_M_P}/zpool")
+        write(zpool_allocator, f"{ZSWAP_M_P}/zpool")
         info("Zswap: set new parameters: complete")
 
     def start_zram() -> None:
         systemd.daemon.notify("STATUS=Setting up Zram...")
         info("Zram: check module availability")
-        if not os.path.isdir("/sys/module/zram"):
-            error("Zram: module not availible")
+        if module_loaded("zram"):
+            info("Zram: module loaded")
         else:
-            info("Zram: module found!")
+            error("Zram: module not available")
 
         def zram_init() -> None:
             info("Zram: trying to initialize free device")
